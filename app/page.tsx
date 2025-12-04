@@ -1,65 +1,123 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { masterTables } from '@/lib/tables';
+import DataTable from '@/components/DataTable';
+import { Database, Sparkles } from 'lucide-react';
 
 export default function Home() {
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+
+  if (selectedTable) {
+    return <DataTable tableName={selectedTable} onClose={() => setSelectedTable(null)} />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Header */}
+      <header className="backdrop-blur-sm bg-white/80 border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Database className="text-blue-600" size={40} strokeWidth={1.5} />
+                <Sparkles className="absolute -top-1 -right-1 text-amber-400" size={16} />
+              </div>
+              <div>
+                <h1 className="text-3xl font-light text-gray-900 tracking-tight">Master Tables</h1>
+                <p className="text-sm text-gray-500 font-light mt-0.5">Centralized data management</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <div className="text-center">
+                <div className="text-2xl font-light text-blue-600">{masterTables.length}</div>
+                <div className="text-xs text-gray-500 font-light">Tables</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-light text-green-600">31</div>
+                <div className="text-xs text-gray-500 font-light">Active</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-8 py-12">
+        {/* Categories */}
+        <div className="space-y-12">
+          {/* Geographic Section */}
+          <section>
+            <div className="mb-6">
+              <h2 className="text-xl font-light text-gray-800 mb-1">Geographic Data</h2>
+              <div className="h-px w-24 bg-gradient-to-r from-blue-400 to-transparent"></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {masterTables.filter(t => ['mast_country', 'mast_region', 'mast_state', 'mast_district', 'mast_pincode', 'mast_place'].includes(t.name)).map((table) => (
+                <button
+                  key={table.name}
+                  onClick={() => setSelectedTable(table.name)}
+                  className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100/50 transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-300">{table.icon}</div>
+                  <h3 className="font-medium text-gray-900 text-sm mb-1">{table.label}</h3>
+                  <p className="text-xs text-gray-400 font-light">{table.name}</p>
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-all duration-300"></div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Master Data Section */}
+          <section>
+            <div className="mb-6">
+              <h2 className="text-xl font-light text-gray-800 mb-1">Master Data</h2>
+              <div className="h-px w-24 bg-gradient-to-r from-purple-400 to-transparent"></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {masterTables.filter(t => !['mast_country', 'mast_region', 'mast_state', 'mast_district', 'mast_pincode', 'mast_place', 'users', 'user_template'].includes(t.name)).map((table) => (
+                <button
+                  key={table.name}
+                  onClick={() => setSelectedTable(table.name)}
+                  className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-100 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-100/50 transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-300">{table.icon}</div>
+                  <h3 className="font-medium text-gray-900 text-sm mb-1">{table.label}</h3>
+                  <p className="text-xs text-gray-400 font-light">{table.name}</p>
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/5 group-hover:to-pink-500/5 transition-all duration-300"></div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* User Management Section */}
+          <section>
+            <div className="mb-6">
+              <h2 className="text-xl font-light text-gray-800 mb-1">User Management</h2>
+              <div className="h-px w-24 bg-gradient-to-r from-emerald-400 to-transparent"></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-4">
+              {masterTables.filter(t => ['users', 'user_template'].includes(t.name)).map((table) => (
+                <button
+                  key={table.name}
+                  onClick={() => setSelectedTable(table.name)}
+                  className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-100 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-100/50 transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform duration-300">{table.icon}</div>
+                  <h3 className="font-medium text-gray-900 text-sm mb-1">{table.label}</h3>
+                  <p className="text-xs text-gray-400 font-light">{table.name}</p>
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/0 to-teal-500/0 group-hover:from-emerald-500/5 group-hover:to-teal-500/5 transition-all duration-300"></div>
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-20 pb-8 text-center">
+        <p className="text-sm text-gray-400 font-light"> 2025 Master Table System</p>
+      </footer>
     </div>
   );
 }
