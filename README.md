@@ -13,41 +13,6 @@ This report documents the entire journey from problem analysis, database schema 
 
 <hr>
 
-<h1>📑 Table of Contents</h1>
-<ol>
-<li>🏷️ Project Title</li>
-<li>🧾 Executive Summary</li>
-<li>🧩 Project Overview</li>
-<li>🎯 Objectives & Goals</li>
-<li>✅ Acceptance Criteria</li>
-<li>💻 Prerequisites</li>
-<li>⚙️ Installation & Setup</li>
-<li>🔗 API Documentation</li>
-<li>🖥️ UI / Frontend Details</li>
-<li>🔢 Status Codes</li>
-<li>🚀 Features</li>
-<li>🧱 Tech Stack & Architecture</li>
-<li>🛠️ Workflow & Implementation</li>
-<li>🧪 Testing & Validation</li>
-<li>🔍 Validation Summary</li>
-<li>🧰 Verification Tools & Commands</li>
-<li>🧯 Troubleshooting & Debugging</li>
-<li>🔒 Security & Secrets</li>
-<li>☁️ Deployment (Vercel)</li>
-<li>⚡ Quick-Start Cheat Sheet</li>
-<li>🧾 Usage Notes</li>
-<li>🧠 Performance & Optimization</li>
-<li>🌟 Enhancements</li>
-<li>🧩 Maintenance & Future Work</li>
-<li>🏆 Key Achievements</li>
-<li>🧮 High-Level Architecture</li>
-<li>🗂️ Folder Structure</li>
-<li>🧭 Demo Instructions</li>
-<li>💡 Summary & Compliance</li>
-</ol>
-
-<hr>
-
 <h1>🧩 Project Overview</h1>
 <p>
 A PostgreSQL-driven admin panel where different master tables such as <code>mast_state</code>, <code>mast_country</code>, <code>mast_status</code>, <code>user_template</code>, etc., can be added, updated, deleted, and searched without creating new UI or API logic. This saves time and eliminates repeated CRUD development for individual tables.
