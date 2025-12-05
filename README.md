@@ -1,20 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Master Table Administration System – Technical Report</title>
-<style>
-body { font-family: Arial, Helvetica, sans-serif; line-height: 1.55; margin: 20px; }
-h1,h2,h3,h4 { color: #003366; }
-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-table,th,td { border: 1px solid #000; }
-th,td { padding: 8px; text-align: left; }
-code { background: #f4f4f4; padding: 2px 4px; border-radius: 4px; }
-pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; }
-</style>
-</head>
-<body>
-
 <h1>🏷️ Project Title</h1>
 <h2><strong>Master Table Administration System (Next.js + PostgreSQL)</strong></h2>
 
