@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, ChevronLeft, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ArrowLeft,
+} from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface DataTableProps {
@@ -9,20 +18,43 @@ interface DataTableProps {
   onClose: () => void;
 }
 
+type RowData = Record<string, any>;
+
+type ColumnSchema = {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+};
+
+// Detect primary key correctly (auto-id or *_code)
+function getSchemaPrimaryKey(columns: ColumnSchema[]) {
+  const pk = columns.find((c) => c.column_default?.includes('nextval'));
+  if (pk) return pk.column_name;
+  const codePk = columns.find((c) => c.column_name.toLowerCase().endsWith('_code'));
+  if (codePk) return codePk.column_name;
+  return columns[0]?.column_name ?? null;
+}
+
 export default function DataTable({ tableName, onClose }: DataTableProps) {
-  const [data, setData] = useState<any[]>([]);
-  const [columns, setColumns] = useState<any[]>([]);
+  const [data, setData] = useState<RowData[]>([]);
+  const [columns, setColumns] = useState<ColumnSchema[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [showModal, setShowModal] = useState(false);
-  const [editingRow, setEditingRow] = useState<any>(null);
-  const [formData, setFormData] = useState<any>({});
+  const [editingRow, setEditingRow] = useState<RowData | null>(null);
+  const [formData, setFormData] = useState<RowData>({});
   const limit = 10;
+
+  const primaryKey = getSchemaPrimaryKey(columns);
 
   useEffect(() => {
     fetchSchema();
+  }, [tableName]);
+
+  useEffect(() => {
     fetchData();
   }, [tableName, page, search]);
 
@@ -31,7 +63,7 @@ export default function DataTable({ tableName, onClose }: DataTableProps) {
       const response = await fetch(`/api/schema?table=${tableName}`);
       const result = await response.json();
       setColumns(result.columns || []);
-    } catch (error) {
+    } catch {
       toast.error('Failed to fetch schema');
     }
   };
@@ -40,12 +72,14 @@ export default function DataTable({ tableName, onClose }: DataTableProps) {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/data?table=${tableName}&limit=${limit}&offset=${page * limit}&search=${search}`
+        `/api/data?table=${tableName}&limit=${limit}&offset=${
+          page * limit
+        }&search=${encodeURIComponent(search)}`
       );
       const result = await response.json();
       setData(result.data || []);
       setTotal(result.total || 0);
-    } catch (error) {
+    } catch {
       toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
@@ -58,258 +92,230 @@ export default function DataTable({ tableName, onClose }: DataTableProps) {
     setShowModal(true);
   };
 
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: RowData) => {
     setEditingRow(row);
     setFormData(row);
     setShowModal(true);
   };
 
-  const handleDelete = async (row: any) => {
+  const handleDelete = async (row: RowData) => {
+    if (!primaryKey) return toast.error('Cannot detect PK');
     if (!confirm('Delete this record?')) return;
 
-    const primaryKey = columns.find((col) => col.column_name.includes('id'))?.column_name;
-    const id = row[primaryKey];
+    const value = row[primaryKey];
 
     try {
-      const response = await fetch(`/api/data?table=${tableName}&id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast.success('Deleted successfully');
+      const response = await fetch(
+        `/api/data?table=${tableName}&id=${encodeURIComponent(String(value))}`,
+        { method: 'DELETE' }
+      );
+      const result = await response.json();
+      if (response.ok && result.success) {
+        toast.success('Deleted');
         fetchData();
-      } else {
-        toast.error('Failed to delete');
-      }
-    } catch (error) {
-      toast.error('Failed to delete');
+      } else toast.error(result.error || 'Cannot delete');
+    } catch {
+      toast.error('Delete failed');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      const method = editingRow ? 'PUT' : 'POST';
-      const primaryKey = columns.find((col) => col.column_name.includes('id'))?.column_name;
-      const id = editingRow ? editingRow[primaryKey] : null;
-      const url = editingRow ? `/api/data?table=${tableName}&id=${id}` : `/api/data?table=${tableName}`;
+    const isEdit = !!editingRow;
+    const url = isEdit
+      ? `/api/data?table=${tableName}&id=${encodeURIComponent(
+          String(editingRow?.[primaryKey!])
+        )}`
+      : `/api/data?table=${tableName}`;
 
+    // Convert numeric fields safely
+    const converted: RowData = {};
+    columns.forEach((c) => {
+      let v = formData[c.column_name];
+      if (
+        ['integer', 'bigint', 'smallint', 'smallserial', 'serial'].includes(
+          c.data_type
+        )
+      ) {
+        v = v === '' || v === null || v === undefined ? null : Number(v);
+      }
+      converted[c.column_name] = v;
+    });
+
+    try {
       const response = await fetch(url, {
-        method,
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(converted),
       });
 
-      if (response.ok) {
-        toast.success(`${editingRow ? 'Updated' : 'Created'} successfully`);
+      const result = await response.json();
+      if (response.ok && result.success) {
+        toast.success(isEdit ? 'Updated' : 'Created');
         setShowModal(false);
+        setEditingRow(null);
+        setFormData({});
         fetchData();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Operation failed');
-      }
-    } catch (error) {
+      } else toast.error(result.error || 'Operation failed');
+    } catch {
       toast.error('Operation failed');
     }
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <Toaster position="top-center" toastOptions={{
-        style: {
-          background: 'white',
-          color: '#374151',
-          border: '1px solid #e5e7eb',
-          borderRadius: '12px',
-          padding: '12px 16px',
-        },
-      }} />
+    <div className="min-h-screen bg-gray-50">
+      <Toaster />
 
-      {/* Header */}
-      <header className="backdrop-blur-sm bg-white/80 border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <ArrowLeft size={20} className="text-gray-600" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-light text-gray-900 capitalize">
-                  {tableName.replace('mast_', '').replace('_', ' ')}
-                </h1>
-                <p className="text-sm text-gray-500 font-light">{total} records</p>
-              </div>
-            </div>
-            <button
-              onClick={handleAdd}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-light"
-            >
-              <Plus size={18} />
-              Add New
-            </button>
-          </div>
+      {/* HEADER */}
+      <header className="bg-white sticky top-0 border-b p-4 flex justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-2 rounded bg-gray-100">
+            <ArrowLeft />
+          </button>
+          <h1 className="text-xl font-medium capitalize">
+            {tableName.replace('mast_', '')}
+          </h1>
         </div>
+        <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded">
+          <Plus size={18} /> Add
+        </button>
       </header>
 
-      {/* Search & Filters */}
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      {/* SEARCH BAR */}
+      <div className="p-4">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(0);
             }}
-            className="w-full pl-12 pr-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-light"
+            placeholder="Search..."
+            className="w-full pl-10 border p-2 rounded"
           />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="max-w-7xl mx-auto px-8 pb-8">
-        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+      {/* TABLE */}
+      <div className="p-4">
+        <div className="border rounded overflow-x-auto bg-white">
+          <table className="w-full">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2">Actions</th>
+                {columns.map((c) => (
+                  <th key={c.column_name} className="p-2">
+                    {c.column_name.toUpperCase()}
                   </th>
-                  {columns.map((col) => (
-                    <th
-                      key={col.column_name}
-                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {col.column_name}
-                    </th>
-                  ))}
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={columns.length + 1} className="p-4 text-center">
+                    Loading...
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={columns.length + 1} className="px-6 py-12 text-center text-gray-400 font-light">
-                      Loading...
+              ) : data.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length + 1} className="p-4 text-center">
+                    No Data
+                  </td>
+                </tr>
+              ) : (
+                data.map((row, idx) => (
+                  <tr key={idx} className="border-t hover:bg-gray-50">
+                    <td className="p-2 flex gap-2">
+                      <button onClick={() => handleEdit(row)} className="text-blue-600">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(row)} className="text-red-600">
+                        <Trash2 size={16} />
+                      </button>
                     </td>
-                  </tr>
-                ) : data.length === 0 ? (
-                  <tr>
-                    <td colSpan={columns.length + 1} className="px-6 py-12 text-center text-gray-400 font-light">
-                      No data found
-                    </td>
-                  </tr>
-                ) : (
-                  data.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(row)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row)}
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                    {columns.map((c) => (
+                      <td key={`${c.column_name}-${idx}`} className="p-2">
+                        {row[c.column_name] ?? '-'}
                       </td>
-                      {columns.map((col) => (
-                        <td key={col.column_name} className="px-6 py-4 text-sm text-gray-700 font-light">
-                          {row[col.column_name]?.toString() || '-'}
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Pagination */}
-        <div className="mt-6 flex justify-between items-center">
-          <p className="text-sm text-gray-500 font-light">
-            Page {page + 1} of {totalPages} • Showing {page * limit + 1}-{Math.min((page + 1) * limit, total)} of {total}
-          </p>
+        {/* PAGINATION */}
+        <div className="mt-3 flex justify-between">
+          <span>
+            Page {page + 1} of {totalPages}
+          </span>
           <div className="flex gap-2">
-            <button
-              onClick={() => setPage(Math.max(0, page - 1))}
-              disabled={page === 0}
-              className="p-2 border border-gray-200 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors"
-            >
-              <ChevronLeft size={20} />
+            <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+              <ChevronLeft />
             </button>
             <button
-              onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="p-2 border border-gray-200 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors"
+              onClick={() => setPage(page + 1)}
             >
-              <ChevronRight size={20} />
+              <ChevronRight />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-6 flex justify-between items-center rounded-t-3xl">
-              <h2 className="text-2xl font-light text-gray-900">
-                {editingRow ? 'Edit Record' : 'New Record'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {columns
-                  .filter((col) => !col.column_default?.includes('nextval'))
-                  .map((col) => (
-                    <div key={col.column_name}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {col.column_name}
+        <div className="fixed inset-0 bg-black/20 flex justify-center items-center">
+          <div className="bg-white p-6 rounded shadow max-w-lg w-full">
+            <h2 className="text-xl mb-4">{editingRow ? 'Edit' : 'Add'} Record</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-2 gap-4">
+                {columns.map((c) => {
+                  const isNumeric = [
+                    'integer',
+                    'bigint',
+                    'smallint',
+                    'smallserial',
+                    'serial',
+                  ].includes(c.data_type);
+
+                  return (
+                    <div key={c.column_name}>
+                      <label className="text-sm">
+                        {c.column_name}
+                        <input
+                          type={isNumeric ? 'number' : 'text'}
+                          value={formData[c.column_name] ?? ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              [c.column_name]: e.target.value,
+                            })
+                          }
+                          className="w-full border p-2 rounded mt-1"
+                        />
                       </label>
-                      <input
-                        type="text"
-                        value={formData[col.column_name] || ''}
-                        onChange={(e) =>
-                          setFormData({ ...formData, [col.column_name]: e.target.value })
-                        }
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-light"
-                      />
                     </div>
-                  ))}
+                  );
+                })}
               </div>
-              <div className="mt-8 flex justify-end gap-3">
+
+              <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-light"
+                  className="px-4 py-2 border rounded"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-light"
-                >
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
                   {editingRow ? 'Update' : 'Create'}
                 </button>
               </div>

@@ -8,6 +8,17 @@ import { Database, Sparkles } from 'lucide-react';
 export default function Home() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
 
+  // ======================================================
+  // 🔵 Temporary Tailwind Test Block (DO NOT EDIT NOW)
+  // ======================================================
+  // To confirm Tailwind works correctly
+  if (false) return (
+    <div className="bg-blue-500 text-white p-6 text-center font-bold text-2xl">
+      Tailwind is Working!
+    </div>
+  );
+  // ======================================================
+
   if (selectedTable) {
     return <DataTable tableName={selectedTable} onClose={() => setSelectedTable(null)} />;
   }
